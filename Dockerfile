@@ -10,7 +10,7 @@ RUN mkdir output
 COPY . ./
 RUN go build -o ./output .
 
-FROM alpine:3
+FROM golang:1.21-bookworm
 
 WORKDIR /app
 

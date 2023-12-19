@@ -15,7 +15,6 @@ FROM golang:1.21-bookworm
 WORKDIR /app
 
 COPY --from=builder /app/output/testapi /app/testapi
-
-RUN mkdir /lib64 && ln -s /lib/libc.musl-x86_64.so.1 /lib64/ld-linux-x86-64.so.2
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 CMD ["/app/testapi"]

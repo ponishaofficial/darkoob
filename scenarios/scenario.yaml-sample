@@ -1,0 +1,47 @@
+name: Create Video and Pay
+iteration: 1
+concurrency: 1
+verbose: false
+steps:
+  createProject:
+    order: 1
+    url: https://mysite.com/v1/projects
+    verb: post
+    pause: 3s
+    headers:
+      Accept: 'application/json'
+      Content-Type: 'application/json'
+      Authorization: 'Bearer MyToken'
+    body:
+      title: 'My Project'
+      slug: 'my-project'
+      related: [ 1, 2, 3 ]
+    return:
+      order_id: data.order.id
+      project_id: data.project.id
+
+  createOrder:
+    order: 2
+    url: https://mysite.com/api/v1/orders/{{ .createProject.order_id }}/confirm'
+    verb: post
+    pause: 3s
+    headers:
+      Accept: 'application/json'
+      Content-Type: 'application/json'
+      Authorization: 'Bearer MyToken'
+    body:
+      project_id: '{{ .createProject.project_id }}'
+    return:
+      confirm_id: data.confirm_id
+
+  verifyPayment:
+    order: 3
+    url: https://mysite.com/api/v1/payments/verify
+    verb: post
+    pause: 3s
+    headers:
+      Accept: 'application/json'
+      Content-Type: 'application/json'
+      Authorization: 'Bearer MyToken'
+    body:
+      token: '{{ .createOrder.confirm_id }}'

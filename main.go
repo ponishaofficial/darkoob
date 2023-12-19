@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"github.com/meysampg/testapi/utils"
 	"log"
@@ -13,13 +14,23 @@ import (
 	"time"
 )
 
+var scenarioFolder string
+
+func init() {
+	flag.StringVar(&scenarioFolder, "scenarios", "./scenarios", "location of scenarios folder")
+	flag.Parse()
+}
+
 func main() {
-	yamls, err := utils.ReadYAMLFiles("/home/meysam/www/go/test-api/scenarios")
+	yamls, err := utils.ReadYAMLFiles(scenarioFolder)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	wg := new(sync.WaitGroup)
+	statCh := make(chan *utils.Stats)
+
+	go utils.DoStats(statCh)
 
 	for file := range yamls {
 		if yamls[file].Name == "" {
@@ -31,25 +42,27 @@ func main() {
 
 		for i := 1; i <= yamls[file].Iteration; i++ {
 			wg.Add(1)
-			go runScenario(wg, i, yamls[file])
+			go runScenario(wg, statCh, i, yamls[file])
 		}
 	}
 
 	wg.Wait()
+	close(statCh)
+	utils.ShowStats()
 }
 
-func runScenario(wg *sync.WaitGroup, round int, scenario *utils.Scenario) {
+func runScenario(wg *sync.WaitGroup, statCh chan<- *utils.Stats, round int, scenario *utils.Scenario) {
 	defer wg.Done()
 	for i := 1; i <= scenario.Concurrency; i++ {
 		wg.Add(1)
-		go func(wg *sync.WaitGroup, round, i int, scenario *utils.Scenario) {
+		go func(wg *sync.WaitGroup, statCh chan<- *utils.Stats, round, i int, scenario *utils.Scenario) {
 			defer wg.Done()
-			runSteps(round, i, scenario)
-		}(wg, round, i, scenario)
+			runSteps(statCh, round, i, scenario)
+		}(wg, statCh, round, i, scenario)
 	}
 }
 
-func runSteps(round, n int, scenario *utils.Scenario) {
+func runSteps(statCh chan<- *utils.Stats, round, n int, scenario *utils.Scenario) {
 	data := make(map[string]map[string]any)
 	sorted := scenario.Sorted()
 
@@ -72,6 +85,10 @@ func runSteps(round, n int, scenario *utils.Scenario) {
 			fmt.Printf("[%s][%d-%d] error on decoding response body, %s\n", name, round, n, err)
 			return
 		}
+		statCh <- &utils.Stats{
+			Name:   name,
+			Status: resp.StatusCode,
+		}
 		if resp.StatusCode >= 400 {
 			respErr := "could be shown using verbose flag."
 			if len(respText) > 0 && scenario.Verbose {
@@ -79,6 +96,10 @@ func runSteps(round, n int, scenario *utils.Scenario) {
 				respErr = fmt.Sprintf("is %s", r)
 			}
 			log.Printf("[%s][%d-%d] error on sending request, status is %d and response %v\n", name, round, n, resp.StatusCode, respErr)
+			if step.Pause >= 1*time.Millisecond {
+				log.Printf("[%s][%d-%d] Sleep for %v.\n", name, round, n, step.Pause)
+				time.Sleep(step.Pause)
+			}
 			return
 		}
 		data[name] = respText

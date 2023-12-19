@@ -16,13 +16,10 @@ steps:
       title: 'My Project'
       slug: 'my-project'
       related: [ 1, 2, 3 ]
-    return:
-      order_id: data.order.id
-      project_id: data.project.id
 
   createOrder:
     order: 2
-    url: https://mysite.com/api/v1/orders/{{ .createProject.order_id }}/confirm'
+    url: https://mysite.com/api/v1/orders/{{ .createProject.data.order.id }}/confirm
     verb: post
     pause: 3s
     headers:
@@ -30,9 +27,7 @@ steps:
       Content-Type: 'application/json'
       Authorization: 'Bearer MyToken'
     body:
-      project_id: '{{ .createProject.project_id }}'
-    return:
-      confirm_id: data.confirm_id
+      project_id: '{{ .createProject.data.project.id }}'
 
   verifyPayment:
     order: 3
@@ -44,4 +39,4 @@ steps:
       Content-Type: 'application/json'
       Authorization: 'Bearer MyToken'
     body:
-      token: '{{ .createOrder.confirm_id }}'
+      token: '{{ .createOrder.data.confirm_id }}'

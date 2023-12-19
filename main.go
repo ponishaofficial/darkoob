@@ -1,0 +1,157 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"github.com/meysampg/testapi/utils"
+	"log"
+	"net/http"
+	"strings"
+	"sync"
+	"text/template"
+	"time"
+)
+
+func main() {
+	yamls, err := utils.ReadYAMLFiles("/home/meysam/www/go/test-api/scenarios")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	wg := new(sync.WaitGroup)
+
+	for file := range yamls {
+		if yamls[file].Name == "" {
+			yamls[file].Name = file
+		}
+		if yamls[file].Concurrency == 0 {
+			yamls[file].Concurrency = 1
+		}
+
+		for i := 1; i <= yamls[file].Iteration; i++ {
+			wg.Add(1)
+			go runScenario(wg, i, yamls[file])
+		}
+	}
+
+	wg.Wait()
+}
+
+func runScenario(wg *sync.WaitGroup, round int, scenario *utils.Scenario) {
+	defer wg.Done()
+	for i := 1; i <= scenario.Concurrency; i++ {
+		wg.Add(1)
+		go func(wg *sync.WaitGroup, round, i int, scenario *utils.Scenario) {
+			defer wg.Done()
+			runSteps(round, i, scenario)
+		}(wg, round, i, scenario)
+	}
+}
+
+func runSteps(round, n int, scenario *utils.Scenario) {
+	data := make(map[string]map[string]any)
+	sorted := scenario.Sorted()
+
+	for s := range sorted {
+		name := sorted[s].Name
+		step := processStep(data, scenario.Steps[name])
+		req, err := makeRequest(step)
+		if err != nil {
+			log.Printf("[%s][%d-%d] error on making request, %s\n", name, round, n, err)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Printf("[%s][%d-%d] error on doing request, %s\n", name, round, n, err)
+			return
+		}
+
+		respText := make(map[string]any)
+		err = json.NewDecoder(resp.Body).Decode(&respText)
+		if err != nil {
+			fmt.Printf("[%s][%d-%d] error on decoding response body, %s\n", name, round, n, err)
+			return
+		}
+		if resp.StatusCode >= 400 {
+			respErr := "could be shown using verbose flag."
+			if len(respText) > 0 && scenario.Verbose {
+				r, _ := json.Marshal(respText)
+				respErr = fmt.Sprintf("is %s", r)
+			}
+			log.Printf("[%s][%d-%d] error on sending request, status is %d and response %v\n", name, round, n, resp.StatusCode, respErr)
+			return
+		}
+		data[name] = respText
+		resp.Body.Close()
+		log.Printf("[%s][%d-%d] Done.\n", name, round, n)
+		if step.Pause >= 1*time.Millisecond {
+			log.Printf("[%s][%d-%d] Sleep for %v.\n", name, round, n, step.Pause)
+			time.Sleep(step.Pause)
+		}
+	}
+}
+
+func makeRequest(scenario *utils.ScenarioStep) (*http.Request, error) {
+	data, err := json.Marshal(scenario.Body)
+	if err != nil && len(scenario.Body) > 0 {
+		return nil, err
+	}
+	req, err := http.NewRequest(strings.ToUpper(scenario.Verb), scenario.URL, bytes.NewBuffer(data))
+	if err != nil {
+		return nil, err
+	}
+
+	for key, value := range scenario.Headers {
+		req.Header.Set(key, value)
+	}
+
+	return req, nil
+}
+
+func processStep(data map[string]map[string]any, step *utils.ScenarioStep) *utils.ScenarioStep {
+	return &utils.ScenarioStep{
+		URL:     fmt.Sprintf("%v", processLine(data, step.URL)),
+		Verb:    fmt.Sprintf("%v", processLine(data, step.Verb)),
+		Headers: step.Headers,
+		Body:    processMap(data, step.Body),
+		Pause:   step.Pause,
+		Return:  step.Return,
+	}
+}
+
+func processLine(data map[string]map[string]any, line any) any {
+	switch v := line.(type) {
+	case string:
+		tmpl, err := template.New("line").Parse(v)
+		if err != nil {
+			log.Println("error on creating template", err)
+			return ""
+		}
+
+		var outputBuffer bytes.Buffer
+		err = tmpl.Execute(&outputBuffer, data)
+		if err != nil {
+			log.Println("error on interpolating", err)
+			return ""
+		}
+
+		return outputBuffer.String()
+
+	default:
+		return v
+	}
+}
+
+func processMap(data map[string]map[string]any, m map[string]any) map[string]any {
+	result := make(map[string]any)
+	for k := range m {
+		switch v := m[k].(type) {
+		case string:
+			result[k] = processLine(data, v)
+		default:
+			result[k] = v
+		}
+	}
+
+	return result
+}

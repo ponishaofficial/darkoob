@@ -10,7 +10,6 @@ type ScenarioStep struct {
 	Verb    string            `yaml:"verb"`
 	Headers map[string]string `yaml:"headers"`
 	Body    map[string]any    `yaml:"body"`
-	Return  map[string]string `yaml:"return"`
 	Pause   time.Duration     `yaml:"pause"`
 	Order   int               `yaml:"order"`
 }

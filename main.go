@@ -95,7 +95,7 @@ func runSteps(statCh chan<- *utils.Stats, round, n int, scenario *utils.Scenario
 				r, _ := json.Marshal(respText)
 				respErr = fmt.Sprintf("is %s", r)
 			}
-			log.Printf("[%s][%d-%d] error on sending request, status is %d and response %v\n", name, round, n, resp.StatusCode, respErr)
+			log.Printf("[%s][%d-%d] error on sending request to %s, status is %d and response %v\n", name, round, n, step.URL, resp.StatusCode, respErr)
 			if step.Pause >= 1*time.Millisecond {
 				log.Printf("[%s][%d-%d] Sleep for %v.\n", name, round, n, step.Pause)
 				time.Sleep(step.Pause)
@@ -136,14 +136,13 @@ func processStep(data map[string]map[string]any, step *utils.ScenarioStep) *util
 		Headers: step.Headers,
 		Body:    processMap(data, step.Body),
 		Pause:   step.Pause,
-		Return:  step.Return,
 	}
 }
 
 func processLine(data map[string]map[string]any, line any) any {
 	switch v := line.(type) {
 	case string:
-		tmpl, err := template.New("line").Parse(v)
+		tmpl, err := template.New("line").Funcs(utils.FuncMaps).Parse(v)
 		if err != nil {
 			log.Println("error on creating template", err)
 			return ""

@@ -1,3 +1,4 @@
 /scenarios/*.yaml
 /vendor/
 /.idea/
+/darkoob

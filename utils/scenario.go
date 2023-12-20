@@ -17,9 +17,12 @@ type ScenarioStep struct {
 type Scenario struct {
 	Name        string                   `yaml:"name"`
 	Concurrency int                      `yaml:"concurrency"`
+	SilentRun   bool                     `yaml:"silent"`
 	Iteration   int                      `yaml:"iteration"`
 	Steps       map[string]*ScenarioStep `yaml:"steps"`
 	Verbose     bool                     `yaml:"verbose"`
+
+	sortedScenario []*SortInfo
 }
 
 type SortInfo struct {
@@ -28,16 +31,19 @@ type SortInfo struct {
 }
 
 func (s *Scenario) Sorted() []*SortInfo {
-	sorted := make([]*SortInfo, 0, len(s.Steps))
-	for k := range s.Steps {
-		sorted = append(sorted, &SortInfo{
-			Order: s.Steps[k].Order,
-			Name:  k,
+	if s.sortedScenario == nil {
+		sorted := make([]*SortInfo, 0, len(s.Steps))
+		for k := range s.Steps {
+			sorted = append(sorted, &SortInfo{
+				Order: s.Steps[k].Order,
+				Name:  k,
+			})
+		}
+		slices.SortFunc(sorted, func(a, b *SortInfo) int {
+			return a.Order - b.Order
 		})
+		s.sortedScenario = sorted
 	}
-	slices.SortFunc(sorted, func(a, b *SortInfo) int {
-		return a.Order - b.Order
-	})
 
-	return sorted
+	return s.sortedScenario
 }

@@ -1,6 +1,7 @@
 name: Create Project and Pay
 iteration: 2
-concurrency: 10
+concurrency: 20
+silent: false
 verbose: false
 steps:
   login:

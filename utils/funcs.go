@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"strings"
 	"text/template"
 )
@@ -16,8 +15,7 @@ var FuncMaps = template.FuncMap{
 			}
 			return parts[0]
 		default:
-			fmt.Println(s)
-			return "fu"
+			return ""
 		}
 	},
 }

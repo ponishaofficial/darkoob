@@ -2,9 +2,5 @@ TestAPI
 =======
 
 ```shell
-docker build -t testapi:latest .
-```
-
-```shell
-docker run --name testapi -v $PWD/scenarios:/app/scenarios -d testapi:latest
+docker run --rm -it -v $PWD/scenarios:/app/scenarios ghcr.io/meysampg/testapi:latest
 ```

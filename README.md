@@ -4,7 +4,7 @@ TestAPI
 ## TL;DR
 
 ```shell
-docker run --rm -it -v $PWD/scenarios:/app/scenarios ghcr.io/meysampg/testapi:latest
+docker run --rm -it -v $PWD/scenarios:/app/scenarios ghcr.io/ponishaofficial/darkoob:latest
 ```
 
 ## Scenario Definition ([Sample Scenario File](/scenarios/scenario.yaml-sample))

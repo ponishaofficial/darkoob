@@ -1,4 +1,4 @@
-module github.com/meysampg/testapi
+module github.com/ponishaofficial/darkoob
 
 go 1.21.1
 

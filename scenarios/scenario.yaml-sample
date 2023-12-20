@@ -1,8 +1,19 @@
-name: Create Video and Pay
-iteration: 1
-concurrency: 1
+name: Create Project and Pay
+iteration: 2
+concurrency: 10
 verbose: false
 steps:
+  login:
+    order: 0
+    url: https://mysite.com/v1/login
+    verb: post
+    pause: 50ms
+    headers:
+      Accept: 'application/json'
+      Content-Type: 'application/json'
+    body:
+      email: 'me@mysite.com'
+      password: 'my_very_strong_password'
   createProject:
     order: 1
     url: https://mysite.com/v1/projects
@@ -11,7 +22,7 @@ steps:
     headers:
       Accept: 'application/json'
       Content-Type: 'application/json'
-      Authorization: 'Bearer MyToken'
+      Authorization: 'Bearer {{ .login.data.token }}'
     body:
       title: 'My Project'
       slug: 'my-project'
@@ -25,7 +36,7 @@ steps:
     headers:
       Accept: 'application/json'
       Content-Type: 'application/json'
-      Authorization: 'Bearer MyToken'
+      Authorization: 'Bearer {{ .login.data.token }}'
     body:
       project_id: '{{ .createProject.data.project.id }}'
 
@@ -37,6 +48,6 @@ steps:
     headers:
       Accept: 'application/json'
       Content-Type: 'application/json'
-      Authorization: 'Bearer MyToken'
+      Authorization: 'Bearer {{ .login.data.token }}'
     body:
       token: '{{ .createOrder.data.confirm_id }}'

@@ -133,43 +133,43 @@ func processStep(data map[string]map[string]any, step *utils.ScenarioStep) *util
 	return &utils.ScenarioStep{
 		URL:     fmt.Sprintf("%v", processLine(data, step.URL)),
 		Verb:    fmt.Sprintf("%v", processLine(data, step.Verb)),
-		Headers: step.Headers,
+		Headers: processMap(data, step.Headers),
 		Body:    processMap(data, step.Body),
 		Pause:   step.Pause,
 	}
 }
 
-func processLine(data map[string]map[string]any, line any) any {
-	switch v := line.(type) {
+func processLine[T ~string | any](data map[string]map[string]any, line T) T {
+	switch v := any(line).(type) {
 	case string:
 		tmpl, err := template.New("line").Funcs(utils.FuncMaps).Parse(v)
 		if err != nil {
 			log.Println("error on creating template", err)
-			return ""
+			return any("").(T)
 		}
 
 		var outputBuffer bytes.Buffer
 		err = tmpl.Execute(&outputBuffer, data)
 		if err != nil {
 			log.Println("error on interpolating", err)
-			return ""
+			return any("").(T)
 		}
 
-		return outputBuffer.String()
+		return any(outputBuffer.String()).(T)
 
 	default:
-		return v
+		return v.(T)
 	}
 }
 
-func processMap(data map[string]map[string]any, m map[string]any) map[string]any {
-	result := make(map[string]any)
+func processMap[T ~string | any](data map[string]map[string]any, m map[string]T) map[string]T {
+	result := make(map[string]T)
 	for k := range m {
-		switch v := m[k].(type) {
+		switch v := any(m[k]).(type) {
 		case string:
-			result[k] = processLine(data, v)
+			result[k] = any(processLine(data, v)).(T)
 		default:
-			result[k] = v
+			result[k] = v.(T)
 		}
 	}
 

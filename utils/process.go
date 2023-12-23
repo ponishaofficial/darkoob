@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"maps"
 	"net/http"
 	"strconv"
 	"strings"
@@ -37,7 +39,7 @@ func runSteps(ctx context.Context, wg *sync.WaitGroup, statCh chan<- *Stats, rou
 	for s := range sorted {
 		count++
 		name := sorted[s].Name
-		step := processStep(data, scenario.Steps[name])
+		step := processStep(data, scenario.Steps[name], name)
 		req, err := makeRequest(ctx, step)
 		if err != nil && isNotSilent {
 			log.Printf("[%s][%s][R%dC%d] error on making request, %s\n", scenario.Name, name, round, clientID, err)
@@ -54,7 +56,7 @@ func runSteps(ctx context.Context, wg *sync.WaitGroup, statCh chan<- *Stats, rou
 		sendStat(wg, statCh, scenario.Name, name, strconv.Itoa(resp.StatusCode))
 		respText := make(map[string]any)
 		err = json.NewDecoder(resp.Body).Decode(&respText)
-		if err != nil && isNotSilent {
+		if err != nil && err != io.EOF && isNotSilent {
 			fmt.Printf("[%s][%s][R%dC%d] error on decoding response body, %s\n", scenario.Name, name, round, clientID, err)
 			return
 		}
@@ -71,7 +73,7 @@ func runSteps(ctx context.Context, wg *sync.WaitGroup, statCh chan<- *Stats, rou
 			}
 			return
 		}
-		data[name] = respText
+		maps.Copy(data[name], respText)
 		resp.Body.Close()
 		if isNotSilent {
 			log.Printf("[%s][%s][R%dC%d] Done.\n", scenario.Name, name, round, clientID)
@@ -100,13 +102,16 @@ func makeRequest(ctx context.Context, scenario *ScenarioStep) (*http.Request, er
 	return req, nil
 }
 
-func processStep(data map[string]map[string]any, step *ScenarioStep) *ScenarioStep {
+func processStep(data map[string]map[string]any, step *ScenarioStep, name string) *ScenarioStep {
+	importStepVariablesIntoData(data, step, name)
+
 	return &ScenarioStep{
-		URL:     fmt.Sprintf("%v", processLine(data, step.URL)),
-		Verb:    fmt.Sprintf("%v", processLine(data, step.Verb)),
-		Headers: processMap(data, step.Headers),
-		Body:    processMap(data, step.Body),
-		Pause:   step.Pause,
+		URL:       fmt.Sprintf("%v", processLine(data, step.URL)),
+		Verb:      fmt.Sprintf("%v", processLine(data, step.Verb)),
+		Variables: step.Variables,
+		Headers:   processMap(data, step.Headers),
+		Body:      processMap(data, step.Body),
+		Pause:     step.Pause,
 	}
 }
 
@@ -145,6 +150,16 @@ func processMap[T ~string | any](data map[string]map[string]any, m map[string]T)
 	}
 
 	return result
+}
+
+func importStepVariablesIntoData(data map[string]map[string]any, step *ScenarioStep, name string) {
+	if _, ok := data[name]; ok {
+		data[name]["variables"] = processMap(data, step.Variables)
+	} else {
+		data[name] = map[string]any{
+			"variables": processMap(data, step.Variables),
+		}
+	}
 }
 
 func sendStat(wg *sync.WaitGroup, ch chan<- *Stats, scenario, step, status string) {

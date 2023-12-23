@@ -6,12 +6,13 @@ import (
 )
 
 type ScenarioStep struct {
-	URL     string            `yaml:"url"`
-	Verb    string            `yaml:"verb"`
-	Headers map[string]string `yaml:"headers"`
-	Body    map[string]any    `yaml:"body"`
-	Pause   time.Duration     `yaml:"pause"`
-	Order   int               `yaml:"order"`
+	Order     int               `yaml:"order"`
+	URL       string            `yaml:"url"`
+	Verb      string            `yaml:"verb"`
+	Pause     time.Duration     `yaml:"pause"`
+	Variables map[string]any    `yaml:"variables"`
+	Headers   map[string]string `yaml:"headers"`
+	Body      map[string]any    `yaml:"body"`
 }
 
 type Scenario struct {

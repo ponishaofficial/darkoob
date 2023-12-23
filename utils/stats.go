@@ -18,16 +18,11 @@ var mu = new(sync.Mutex)
 
 func DoStats(ch <-chan *Stats) {
 	for v := range ch {
-		mu.Lock()
-		if _, ok := _stats[v.Scenario]; ok {
-			if _, ok := _stats[v.Scenario][v.Step]; ok {
-				if n, ok := _stats[v.Scenario][v.Step][v.Status]; ok {
-					_stats[v.Scenario][v.Step][v.Status] = n + 1
-				} else {
-					_stats[v.Scenario][v.Step][v.Status] = 1
-				}
+		if mse, ok := _stats[v.Scenario]; ok {
+			if mst, ok := mse[v.Step]; ok {
+				mst[v.Status] += 1
 			} else {
-				_stats[v.Scenario][v.Step] = map[string]int{v.Status: 1}
+				mse[v.Step] = map[string]int{v.Status: 1}
 			}
 		} else {
 			_stats[v.Scenario] = map[string]map[string]int{
@@ -36,7 +31,6 @@ func DoStats(ch <-chan *Stats) {
 				},
 			}
 		}
-		mu.Unlock()
 	}
 }
 
